@@ -3,6 +3,7 @@
    ### Added
       - restore: decrypt `.gpg` backups with a private key or passphrase (`RESTORE_GPG_PRIVATE_KEY`, `RESTORE_GPG_PASSPHRASE`, or interactive)
       - build.sh and GitHub Actions workflow that build the base image from tiredofit/docker-alpine 7.10.31 and push to GHCR
+      - Base image is patched to build again: Zabbix agent 7.0.13 (7.2.6 sources are no longer available) and no upx compression
 
    ### Changed
       - Encrypt with `ENCRYPT_PUBLIC_KEY` alone, `ENCRYPT_PRIVATE_KEY` is ignored when backing up

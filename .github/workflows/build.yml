@@ -2,8 +2,14 @@ name: build
 
 on:
   push:
+    branches:
+      - "4.x-gpg"
     tags:
       - "4.*"
+    paths-ignore:
+      - "README.md"
+      - "CHANGELOG.md"
+      - "examples/**"
   workflow_dispatch:
 
 permissions:
@@ -14,6 +20,7 @@ env:
   # tiredofit/alpine is no longer published, so the base image is built from source and kept in GHCR
   BASE_REF: "7.10.31"
   ALPINE_VERSION: "3.21"
+  ZABBIX_VERSION: "7.0.13"
   PLATFORMS: linux/amd64
 
 jobs:
@@ -55,13 +62,19 @@ jobs:
           ref: ${{ env.BASE_REF }}
           path: .base
 
+      - name: Patch base image source
+        if: steps.base.outputs.exists != 'true'
+        run: ./scripts/patch-base-image.sh .base
+
       - name: Build base image
         if: steps.base.outputs.exists != 'true'
         uses: docker/build-push-action@v6
         with:
           context: .base
           platforms: ${{ env.PLATFORMS }}
-          build-args: ALPINE_VERSION=${{ env.ALPINE_VERSION }}
+          build-args: |
+            ALPINE_VERSION=${{ env.ALPINE_VERSION }}
+            ZABBIX_VERSION=${{ env.ZABBIX_VERSION }}
           push: true
           tags: ${{ steps.names.outputs.base }}
 

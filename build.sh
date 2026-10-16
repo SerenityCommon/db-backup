@@ -7,6 +7,7 @@ IMAGE=${IMAGE:-db-backup:4.1.101}
 PLATFORM=${PLATFORM:-}
 BASE_REF=${BASE_REF:-7.10.31}
 ALPINE_VERSION=${ALPINE_VERSION:-3.21}
+ZABBIX_VERSION=${ZABBIX_VERSION:-7.0.13}
 BASE_IMAGE=${BASE_IMAGE:-db-backup-base:${ALPINE_VERSION}-${BASE_REF}}
 
 cd "$(dirname "$0")"
@@ -17,7 +18,11 @@ if ! docker image inspect "${BASE_IMAGE}" > /dev/null 2>&1; then
     work=$(mktemp -d)
     trap 'rm -rf "${work}"' EXIT
     git clone --depth 1 --branch "${BASE_REF}" https://github.com/tiredofit/docker-alpine.git "${work}/docker-alpine"
-    docker build "${platform_arg[@]}" --build-arg ALPINE_VERSION="${ALPINE_VERSION}" -t "${BASE_IMAGE}" "${work}/docker-alpine"
+    ./scripts/patch-base-image.sh "${work}/docker-alpine"
+    docker build "${platform_arg[@]}" \
+        --build-arg ALPINE_VERSION="${ALPINE_VERSION}" \
+        --build-arg ZABBIX_VERSION="${ZABBIX_VERSION}" \
+        -t "${BASE_IMAGE}" "${work}/docker-alpine"
 fi
 
 docker build "${platform_arg[@]}" --build-arg BASE_IMAGE="${BASE_IMAGE}" -t "${IMAGE}" .
