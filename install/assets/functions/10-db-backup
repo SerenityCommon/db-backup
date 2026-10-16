@@ -311,7 +311,10 @@ EOF
                             DEFAULT_MONGO_CUSTOM_URI \
                             DEFAULT_MYSQL_TLS_CA_FILE \
                             DEFAULT_MYSQL_TLS_CERT_FILE \
-                            DEFAULT_MYSQL_TLS_KEY_FILE
+                            DEFAULT_MYSQL_TLS_KEY_FILE \
+                            DEFAULT_ENCRYPT_PASSPHRASE \
+                            RESTORE_GPG_PASSPHRASE \
+                            RESTORE_GPG_PRIVATE_KEY
 
         set -o posix ; set | grep -E "^DEFAULT_" > "${restore_vars}"
 
@@ -1339,27 +1342,27 @@ file_encryption() {
             print_debug "[file_encryption] Encrypting"
             output_off
             if [ -n "${backup_job_encrypt_passphrase}" ] && [ -n "${backup_job_encrypt_public_key}" ]; then
-                print_error "Can't encrypt as both ENCRYPT_PASSPHRASE and ENCRYPT_PUBKEY exist!"
-                return
-            elif [ -n "${backup_job_encrypt_passphrase}" ] && [ -z "${backup_job_encrypt_public_key}" ]; then
+                print_error "Can't encrypt as both ENCRYPT_PASSPHRASE and ENCRYPT_PUBLIC_KEY exist!"
+            elif [ -n "${backup_job_encrypt_passphrase}" ]; then
                 print_notice "Encrypting with GPG Passphrase"
                 encrypt_routines_start_time=$(date +'%s')
                 encrypt_tmp_dir=$(run_as_user mktemp -d)
-                echo "${backup_job_encrypt_passphrase}" | silent run_as_user ${play_fair} gpg --batch --home ${encrypt_tmp_dir} --yes --passphrase-fd 0 -c "${temporary_directory}"/"${backup_job_filename}"
+                echo "${backup_job_encrypt_passphrase}" | silent run_as_user ${play_fair} gpg --batch --home ${encrypt_tmp_dir} --yes --pinentry-mode loopback --passphrase-fd 0 --cipher-algo AES256 -c "${temporary_directory}"/"${backup_job_filename}"
                 rm -rf "${encrypt_tmp_dir}"
-            elif [ -z "${backup_job_encrypt_passphrase}" ] && [ -n "${backup_job_encrypt_public_key}" ] && [ -n "${backup_job_encrypt_private_key}" ]; then
-                if [ -f "${backup_job_encrypt_private_key}" ]; then
+            elif [ -n "${backup_job_encrypt_public_key}" ]; then
+                # Only the public key is needed to encrypt. ENCRYPT_PRIVATE_KEY is ignored so it never has to live on the backup host.
+                if [ -f "${backup_job_encrypt_public_key}" ]; then
                     encrypt_routines_start_time=$(date +'%s')
-                    print_notice "Encrypting with GPG Private Key"
+                    print_notice "Encrypting with GPG Public Key"
                     encrypt_tmp_dir=$(run_as_user mktemp -d)
-                    cat "${backup_job_encrypt_private_key}" | run_as_user tee "${encrypt_tmp_dir}"/private_key.asc > /dev/null
-                    print_debug "[file_encryption] [key] Importing Private Key"
-                    silent run_as_user gpg --home ${encrypt_tmp_dir} --batch --import "${encrypt_tmp_dir}"/private_key.asc
-                    print_debug "[file_encryption] [key] Encrypting to Public Key"
                     cat "${backup_job_encrypt_public_key}" | run_as_user tee "${encrypt_tmp_dir}"/public_key.asc > /dev/null
                     silent run_as_user ${play_fair} gpg --batch --yes --home "${encrypt_tmp_dir}" --encrypt --recipient-file "${encrypt_tmp_dir}"/public_key.asc "${temporary_directory}"/"${backup_job_filename}"
                     rm -rf "${encrypt_tmp_dir}"
+                else
+                    print_error "Can't find GPG public key '${backup_job_encrypt_public_key}'"
                 fi
+            else
+                print_error "ENCRYPT is enabled but neither ENCRYPT_PASSPHRASE nor ENCRYPT_PUBLIC_KEY is set"
             fi
             if [ -f "${temporary_directory}"/"${backup_job_filename}".gpg ]; then
                 print_debug "[file_encryption] Deleting original file"
@@ -1374,6 +1377,11 @@ EOF
                 )
             else
                 print_error "Encryption failed! Could not detect encrypted file"
+                # Never let an unencrypted backup reach storage: drop it and mark the job as failed
+                rm -rf "${temporary_directory:?}"/"${backup_job_filename:?}"
+                exit_code=99
+                check_exit_code backup "${backup_job_filename}"
+                if var_true "${DEBUG_FILE_ENCRYPTION}" ; then debug off; fi
                 return 99
             fi
         else

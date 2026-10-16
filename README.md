@@ -1,3 +1,16 @@
+# SerenityCommon/db-backup (4.x-gpg)
+
+Maintained fork of the last MIT licensed release (4.1.100) of `tiredofit/db-backup`. Changes from upstream:
+
+- GPG encryption with only a public key - the private key is no longer required on the backup host
+- An unencrypted backup is never moved to storage if encryption fails, the job is marked as failed instead
+- `restore` can decrypt `.gpg` backups (see [Restoring encrypted backups](#restoring-encrypted-backups))
+- Base image is built from source since `tiredofit/alpine` is no longer published (`./build.sh`, or GitHub Actions)
+
+Image: `ghcr.io/serenitycommon/db-backup:latest` (linux/amd64)
+
+---
+
 # github.com/tiredofit/docker-db-backup
 
 [![GitHub release](https://img.shields.io/github/v/tag/tiredofit/docker-db-backup?style=flat-square)](https://github.com/tiredofit/docker-db-backup/releases/latest)
@@ -216,13 +229,16 @@ If these are set and no other defaults or variables are set explicitly, they wil
 
 Encryption occurs after compression and the encrypted filename will have a `.gpg` suffix
 
-| Variable                      | Description                                  | Default | `_FILE` |
-| ----------------------------- | -------------------------------------------- | ------- | ------- |
-| `DEFAULT_ENCRYPT`             | Encrypt file after backing up with GPG       | `FALSE` |         |
-| `DEFAULT_ENCRYPT_PASSPHRASE`  | Passphrase to encrypt file with GPG          |         | x       |
-| *or*                          |                                              |         |         |
-| `DEFAULT_ENCRYPT_PUBLIC_KEY`  | Path of public key to encrypt file with GPG  |         | x       |
-| `DEFAULT_ENCRYPT_PRIVATE_KEY` | Path of private key to encrypt file with GPG |         | x       |
+Using a public key is recommended: only the public key lives on the backup host, so whoever gets the backups (or the host) can't read them without your private key.
+If encryption fails for any reason the unencrypted file is deleted and the job is reported as failed - it is never moved to storage.
+
+| Variable                      | Description                                                  | Default | `_FILE` |
+| ----------------------------- | ------------------------------------------------------------ | ------- | ------- |
+| `DEFAULT_ENCRYPT`             | Encrypt file after backing up with GPG                       | `FALSE` |         |
+| `DEFAULT_ENCRYPT_PASSPHRASE`  | Passphrase to encrypt file with GPG (symmetric, AES256)      |         | x       |
+| *or*                          |                                                              |         |         |
+| `DEFAULT_ENCRYPT_PUBLIC_KEY`  | Path of public key to encrypt file with GPG                  |         | x       |
+| `DEFAULT_ENCRYPT_PRIVATE_KEY` | Ignored when backing up - the private key is not needed      |         | x       |
 
 ##### Scheduling Options
 
@@ -483,14 +499,16 @@ Otherwise, override them per backup job. Additional backup jobs can be scheduled
 
 Encryption will occur after compression and the resulting filename will have a `.gpg` suffix
 
+Using a public key is recommended: only the public key lives on the backup host, so whoever gets the backups (or the host) can't read them without your private key.
+If encryption fails for any reason the unencrypted file is deleted and the job is reported as failed - it is never moved to storage.
 
-| Variable                   | Description                                  | Default | `_FILE` |
-| -------------------------- | -------------------------------------------- | ------- | ------- |
-| `DB01_ENCRYPT`             | Encrypt file after backing up with GPG       | `FALSE` |         |
-| `DB01_ENCRYPT_PASSPHRASE`  | Passphrase to encrypt file with GPG          |         | x       |
-| *or*                       |                                              |         |         |
-| `DB01_ENCRYPT_PUBLIC_KEY`  | Path of public key to encrypt file with GPG  |         | x       |
-| `DB01_ENCRYPT_PRIVATE_KEY` | Path of private key to encrypt file with GPG |         | x       |
+| Variable                   | Description                                                  | Default | `_FILE` |
+| -------------------------- | ------------------------------------------------------------ | ------- | ------- |
+| `DB01_ENCRYPT`             | Encrypt file after backing up with GPG                       | `FALSE` |         |
+| `DB01_ENCRYPT_PASSPHRASE`  | Passphrase to encrypt file with GPG (symmetric, AES256)      |         | x       |
+| *or*                       |                                                              |         |         |
+| `DB01_ENCRYPT_PUBLIC_KEY`  | Path of public key to encrypt file with GPG                  |         | x       |
+| `DB01_ENCRYPT_PRIVATE_KEY` | Ignored when backing up - the private key is not needed      |         | x       |
 
 ##### Scheduling Options
 
@@ -835,6 +853,23 @@ The script can also be executed skipping the interactive mode by using the follo
     `restore <filename> <db_type> <db_hostname> <db_name> <db_user> <db_pass> <db_port>`
 
 If you only enter some of the arguments you will be prompted to fill them in.
+
+#### Restoring encrypted backups
+
+Files ending in `.gpg` are decrypted to `TEMP_PATH` before restoring, and the decrypted copy is removed when the script exits.
+
+| Variable                  | Description                                                                         | `_FILE` |
+| ------------------------- | ----------------------------------------------------------------------------------- | ------- |
+| `RESTORE_GPG_PRIVATE_KEY` | Path of private key to decrypt with (falls back to `DEFAULT_ENCRYPT_PRIVATE_KEY`)   | x       |
+| `RESTORE_GPG_PASSPHRASE`  | Passphrase of the private key, or the symmetric passphrase (falls back to `DEFAULT_ENCRYPT_PASSPHRASE`) | x |
+
+If none of these are set you will be asked for the path of the private key (leave it blank for passphrase encrypted files) and GPG will prompt for the passphrase. This lets you keep the private key off the backup host and only copy it in while restoring, e.g.:
+
+    docker cp private.asc db-backup:/tmp/private.asc
+    docker exec -it db-backup restore      # enter /tmp/private.asc when asked
+    docker exec db-backup rm -f /tmp/private.asc
+
+Encrypted backups can also be decrypted anywhere with plain GnuPG: `gpg --decrypt file.sql.zst.gpg > file.sql.zst`
 
 
 

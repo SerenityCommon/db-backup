@@ -77,6 +77,7 @@ fi
 
 control_c() {
     if [ -f "${restore_vars}" ] ; then rm -rf "${restore_vars}" ; fi
+    cleanup_decrypted
     print_warn "User aborted"
     exit
 }
@@ -888,7 +889,7 @@ EOF
 get_filename() {
     COLUMNS=12
     prompt="Please select a file to restore:"
-    options=( $(find "${DEFAULT_FILESYSTEM_PATH}" -type f -maxdepth 2  -not -name '*.md5' -not -name '*.sha1' -not -name '*.gpg' -print0 | sort -z | xargs -0) )
+    options=( $(find "${DEFAULT_FILESYSTEM_PATH}" -type f -maxdepth 2  -not -name '*.md5' -not -name '*.sha1' -print0 | sort -z | xargs -0) )
     PS3="$prompt "
     select opt in "${options[@]}" "Custom" "Quit" ; do
         if (( REPLY == 2 + ${#options[@]} )) ; then
@@ -990,7 +991,56 @@ EOF
 }
 
 #### SCRIPT START
+cleanup_decrypted() {
+    if [ -n "${r_gpg_home}" ] ; then rm -rf "${r_gpg_home}" ; fi
+    if [ -n "${r_decrypt_dir}" ] ; then rm -rf "${r_decrypt_dir}" ; fi
+}
+
+decrypt_file() {
+    r_gpg_private_key="${RESTORE_GPG_PRIVATE_KEY:-${DEFAULT_ENCRYPT_PRIVATE_KEY}}"
+    r_gpg_passphrase="${RESTORE_GPG_PASSPHRASE:-${DEFAULT_ENCRYPT_PASSPHRASE}}"
+
+    if [ -z "${r_gpg_private_key}" ] && [ -z "${r_gpg_passphrase}" ] ; then
+        print_info "'${r_filename}' is GPG encrypted"
+        read -p "Path to GPG private key (leave blank if it was encrypted with a passphrase): " r_gpg_private_key
+    fi
+    if [ -n "${r_gpg_private_key}" ] && [ ! -f "${r_gpg_private_key}" ] ; then
+        print_error "Can't find GPG private key '${r_gpg_private_key}'"
+        exit 1
+    fi
+
+    r_gpg_home=$(mktemp -d)
+    mkdir -p "${TEMP_PATH}"
+    r_decrypt_dir=$(mktemp -d -p "${TEMP_PATH}")
+    r_decrypted_file="${r_decrypt_dir}/$(basename -- "${r_filename%.gpg}")"
+
+    if [ -n "${r_gpg_private_key}" ] ; then
+        print_debug "Importing GPG private key '${r_gpg_private_key}'"
+        if ! gpg --homedir "${r_gpg_home}" --batch --import "${r_gpg_private_key}" > /dev/null 2>&1 ; then
+            print_error "Failed to import GPG private key '${r_gpg_private_key}'"
+            cleanup_decrypted
+            exit 1
+        fi
+    fi
+
+    print_info "Decrypting '${r_filename}'"
+    if [ -n "${r_gpg_passphrase}" ] ; then
+        echo "${r_gpg_passphrase}" | gpg --homedir "${r_gpg_home}" --batch --yes --pinentry-mode loopback --passphrase-fd 0 --output "${r_decrypted_file}" --decrypt "${r_filename}"
+    else
+        # Interactive: gpg asks on the terminal if the key or file needs a passphrase
+        gpg --homedir "${r_gpg_home}" --yes --pinentry-mode loopback --output "${r_decrypted_file}" --decrypt "${r_filename}"
+    fi
+    if [ $? -ne 0 ] || [ ! -f "${r_decrypted_file}" ] ; then
+        print_error "Failed to decrypt '${r_filename}'"
+        cleanup_decrypted
+        exit 1
+    fi
+    rm -rf "${r_gpg_home}"
+    r_filename="${r_decrypted_file}"
+}
+
 trap control_c INT
+trap cleanup_decrypted EXIT
 bootstrap_variables restore_init
 
 cat << EOF
@@ -1012,6 +1062,11 @@ else
 fi
 
 print_debug "Filename to recover '${r_filename}'"
+
+if [ "${r_filename##*.}" = "gpg" ] ; then
+    decrypt_file
+    print_debug "Decrypted to '${r_filename}'"
+fi
 
 ## Question Database Type
 if [ -n "${2}" ]; then

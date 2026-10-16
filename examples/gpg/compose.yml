@@ -1,0 +1,27 @@
+services:
+  db-backup:
+    container_name: db-backup
+    image: ghcr.io/serenitycommon/db-backup:latest
+    volumes:
+      - ./backups:/backup
+      # Only the PUBLIC key goes on the server. Export it with: gpg --armor --export you@example.com > public.asc
+      - ./public.asc:/keys/public.asc:ro
+    environment:
+      - TIMEZONE=Europe/Kyiv
+      - CONTAINER_ENABLE_MONITORING=FALSE
+      - CONTAINER_NAME=db-backup
+
+      - DEFAULT_ENCRYPT=TRUE
+      - DEFAULT_ENCRYPT_PUBLIC_KEY=/keys/public.asc
+      - DEFAULT_COMPRESSION=ZSTD
+      - DEFAULT_CHECKSUM=SHA1
+      - DEFAULT_BACKUP_INTERVAL=1440
+      - DEFAULT_BACKUP_BEGIN=0300
+      - DEFAULT_CLEANUP_TIME=10080
+
+      - DB01_TYPE=pgsql
+      - DB01_HOST=postgres
+      - DB01_NAME=app
+      - DB01_USER=app
+      - DB01_PASS=change-me
+    restart: always

@@ -1,7 +1,9 @@
 ARG DISTRO=alpine
 ARG DISTRO_VARIANT=3.21-7.10.31
+# tiredofit/alpine is no longer published, build it locally with ./build.sh
+ARG BASE_IMAGE=docker.io/tiredofit/${DISTRO}:${DISTRO_VARIANT}
 
-FROM docker.io/tiredofit/${DISTRO}:${DISTRO_VARIANT}
+FROM ${BASE_IMAGE}
 LABEL maintainer="Dave Conroy (github.com/tiredofit)"
 
 ENV INFLUX1_CLIENT_VERSION=1.8.0 \

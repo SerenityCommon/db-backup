@@ -1,3 +1,15 @@
+## 4.1.101-gpg 2026-10-16
+
+   ### Added
+      - restore: decrypt `.gpg` backups with a private key or passphrase (`RESTORE_GPG_PRIVATE_KEY`, `RESTORE_GPG_PASSPHRASE`, or interactive)
+      - build.sh and GitHub Actions workflow that build the base image from tiredofit/docker-alpine 7.10.31 and push to GHCR
+
+   ### Changed
+      - Encrypt with `ENCRYPT_PUBLIC_KEY` alone, `ENCRYPT_PRIVATE_KEY` is ignored when backing up
+      - Passphrase encryption uses AES256 and loopback pinentry
+      - If encryption fails the unencrypted file is removed and the job is reported as failed instead of being moved to storage
+
+
 ## 4.1.100 2026-03-13 <dave at tiredofit dot ca>
 
    ### Changed
