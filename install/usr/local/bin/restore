@@ -77,7 +77,7 @@ fi
 
 control_c() {
     if [ -f "${restore_vars}" ] ; then rm -rf "${restore_vars}" ; fi
-    cleanup_decrypted
+    cleanup_restore
     print_warn "User aborted"
     exit
 }
@@ -991,7 +991,8 @@ EOF
 }
 
 #### SCRIPT START
-cleanup_decrypted() {
+cleanup_restore() {
+    if [ -f "${restore_vars}" ] ; then rm -rf "${restore_vars}" ; fi
     if [ -n "${r_gpg_home}" ] ; then rm -rf "${r_gpg_home}" ; fi
     if [ -n "${r_decrypt_dir}" ] ; then rm -rf "${r_decrypt_dir}" ; fi
 }
@@ -1018,7 +1019,7 @@ decrypt_file() {
         print_debug "Importing GPG private key '${r_gpg_private_key}'"
         if ! gpg --homedir "${r_gpg_home}" --batch --import "${r_gpg_private_key}" > /dev/null 2>&1 ; then
             print_error "Failed to import GPG private key '${r_gpg_private_key}'"
-            cleanup_decrypted
+            cleanup_restore
             exit 1
         fi
     fi
@@ -1032,7 +1033,7 @@ decrypt_file() {
     fi
     if [ $? -ne 0 ] || [ ! -f "${r_decrypted_file}" ] ; then
         print_error "Failed to decrypt '${r_filename}'"
-        cleanup_decrypted
+        cleanup_restore
         exit 1
     fi
     rm -rf "${r_gpg_home}"
@@ -1040,7 +1041,7 @@ decrypt_file() {
 }
 
 trap control_c INT
-trap cleanup_decrypted EXIT
+trap cleanup_restore EXIT
 bootstrap_variables restore_init
 
 cat << EOF
