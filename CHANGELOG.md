@@ -9,6 +9,9 @@
       - Passphrase encryption uses AES256 and loopback pinentry
       - If encryption fails the unencrypted file is removed and the job is reported as failed instead of being moved to storage
 
+   ### Fixed
+      - restore: temporary file with DB passwords was left in /tmp after every run
+
 
 ## 4.1.100 2026-03-13 <dave at tiredofit dot ca>
 
