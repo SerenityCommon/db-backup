@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 # Builds the db-backup image together with its base image, since tiredofit/alpine was removed from Docker Hub.
-#   IMAGE=ghcr.io/me/db-backup:4.1.100-gpg PLATFORM=linux/amd64 ./build.sh
+#   IMAGE=ghcr.io/me/db-backup:4.1.101 PLATFORM=linux/amd64 ./build.sh
 set -euo pipefail
 
-IMAGE=${IMAGE:-db-backup:4.1.100-gpg}
+IMAGE=${IMAGE:-db-backup:4.1.101}
 PLATFORM=${PLATFORM:-}
 BASE_REF=${BASE_REF:-7.10.31}
 ALPINE_VERSION=${ALPINE_VERSION:-3.21}

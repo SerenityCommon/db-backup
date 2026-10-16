@@ -1,4 +1,4 @@
-## 4.1.101-gpg 2026-10-16
+## 4.1.101 2026-10-16
 
    ### Added
       - restore: decrypt `.gpg` backups with a private key or passphrase (`RESTORE_GPG_PRIVATE_KEY`, `RESTORE_GPG_PASSPHRASE`, or interactive)

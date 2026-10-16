@@ -7,7 +7,7 @@ Maintained fork of the last MIT licensed release (4.1.100) of `tiredofit/db-back
 - `restore` can decrypt `.gpg` backups (see [Restoring encrypted backups](#restoring-encrypted-backups))
 - Base image is built from source since `tiredofit/alpine` is no longer published (`./build.sh`, or GitHub Actions)
 
-Image: `ghcr.io/serenitycommon/db-backup:latest` (linux/amd64)
+Image: `ghcr.io/serenitycommon/db-backup:4.1.101` (also `:latest`, linux/amd64)
 
 ---
 
